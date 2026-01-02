@@ -1,0 +1,7 @@
+{
+  "name": "StyloGlo - Elevate Your Fashion & Style",
+  "description": "A premium AI-powered fashion and styling app that provides personalized recommendations for outfits, hairstyles, grooming, and color palettes using advanced vision analysis.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
