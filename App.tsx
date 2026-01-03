@@ -1,6 +1,7 @@
+
 import React, { useState, useRef, useEffect } from 'react';
 import { AppTab, AnalysisState, StyleAnalysis, Recommendation } from './types';
-import { HomeIcon, CameraIcon, GridIcon, UserIcon, SparklesIcon, ChevronRightIcon } from './components/Icons';
+import { HomeIcon, CameraIcon, GridIcon, UserIcon, SparklesIcon, ChevronRightIcon, GoogleIcon, AppleIcon, InstagramIcon, HairIcon, MakeupIcon, OutfitIcon, AccessIcon, TattooIcon, DietIcon } from './components/Icons';
 import { analyzeStyle, transformStyle } from './geminiService';
 import { ScannerOverlay } from './components/ScannerOverlay';
 
@@ -141,7 +142,7 @@ const App: React.FC = () => {
   const [activeTab, setActiveTab] = useState<AppTab>(AppTab.HOME);
   const [analysis, setAnalysis] = useState<AnalysisState>({ status: 'idle', image: null, result: null });
   const [scanStage, setScanStage] = useState<'mapping' | 'face' | 'pigmentation' | 'analyzing'>('mapping');
-  const [activeCategory, setActiveCategory] = useState<'hair' | 'outfit' | 'access' | 'diet' | 'tattoo'>('hair');
+  const [activeCategory, setActiveCategory] = useState<'hair' | 'makeup' | 'outfit' | 'access' | 'diet' | 'tattoo'>('hair');
   const [subCategory, setSubCategory] = useState<string>('hair');
   const [isCapturing, setIsCapturing] = useState(false);
   const [currentGroupIndex, setCurrentGroupIndex] = useState(0);
@@ -150,6 +151,14 @@ const App: React.FC = () => {
   const [displayedImage, setDisplayedImage] = useState<string | null>(null);
   const [isFullView, setIsFullView] = useState(false);
   const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
+
+  // Modal states
+  const [isShopModalOpen, setIsShopModalOpen] = useState(false);
+  const [shopTargetStyle, setShopTargetStyle] = useState<Recommendation | null>(null);
+  const [isNearbyModalOpen, setIsNearbyModalOpen] = useState(false);
+  const [isBookingFormOpen, setIsBookingFormOpen] = useState(false);
+  const [isBookingConfirmed, setIsBookingConfirmed] = useState(false);
+  const [selectedService, setSelectedService] = useState<any>(null);
 
   const demographicBackgrounds = [
     { id: 'ref-female', label: 'STYLE', url: 'https://images.unsplash.com/photo-1515886657613-9f3515b0c78f?auto=format&fit=crop&q=80&w=1000' },
@@ -162,6 +171,7 @@ const App: React.FC = () => {
 
   const categorySubOptions: Record<string, string[]> = {
     hair: ['hair', 'beard'],
+    makeup: ['Contact Lens', 'Eyebrows', 'Eye Liner', 'Lipstick', 'Lip Liner', 'Stickers', 'Ear Rings'],
     outfit: ['Party', 'Wedding', 'Office', 'Fashion', 'Travel', 'Beach', 'Trekking', 'Summer', 'Winter', 'Rainy'],
     access: ['Shoes', 'Watches', 'Sunglasses', 'Caps', 'Bands', 'Studs', 'Belts', 'Ties'],
     tattoo: ['Face', 'Neck', 'Fingers', 'Hands', 'Shoulder', 'Front', 'Back', 'Belly', 'Waist', 'Legs'],
@@ -186,8 +196,19 @@ const App: React.FC = () => {
 
   // When active category changes, reset sub-category to default
   useEffect(() => {
-    setSubCategory(categorySubOptions[activeCategory][0]);
-  }, [activeCategory]);
+    const gender = analysis.result?.physicalAttributes?.gender?.toLowerCase();
+    const options = categorySubOptions[activeCategory] || [];
+    
+    // Filter Beard option if not an adult Male
+    let filteredOptions = options;
+    if (activeCategory === 'hair') {
+      if (gender !== 'male') {
+        filteredOptions = options.filter(o => o !== 'beard');
+      }
+    }
+    
+    setSubCategory(filteredOptions[0]);
+  }, [activeCategory, analysis.result]);
 
   const handleMediaSelected = (image: string) => {
     setAnalysis({ status: 'previewing', image: image, result: null });
@@ -233,6 +254,27 @@ const App: React.FC = () => {
     }
   };
 
+  const handleShopClick = (style: Recommendation) => {
+    setShopTargetStyle(style);
+    setIsShopModalOpen(true);
+  };
+
+  const handleNearbyClick = () => {
+    setIsNearbyModalOpen(true);
+  };
+
+  const handleBookClick = (service: any) => {
+    setSelectedService(service);
+    setIsBookingFormOpen(true);
+  };
+
+  const submitBooking = (e: React.FormEvent) => {
+    e.preventDefault();
+    // In a real app, this would send an email/API call
+    setIsBookingConfirmed(true);
+    setIsBookingFormOpen(false);
+  };
+
   const resetTryOn = () => {
     setTryOnState('idle');
     setActiveTryOnStyle(null);
@@ -241,7 +283,6 @@ const App: React.FC = () => {
   };
 
   const handleBackToSelection = () => {
-    // Return to selection mode but don't reset the applied image (as requested)
     setTryOnState('idle');
     setIsFullView(false);
   };
@@ -261,6 +302,15 @@ const App: React.FC = () => {
     } else {
       setIsShareSheetOpen(true);
     }
+  };
+
+  const handleForgotPassword = () => {
+    alert("Instructions to reset your password have been sent to your email.");
+  };
+
+  const handleSocialSignIn = (provider: string) => {
+    console.log(`Signing in with ${provider}`);
+    setIsAuthenticated(true);
   };
 
   function renderSplashScreen() {
@@ -284,11 +334,33 @@ const App: React.FC = () => {
           <h1 className="text-4xl font-black text-white tracking-tighter uppercase mb-2">STYLO<span className="text-cyan-400">GLO</span></h1>
           <p className="text-white/40 text-[10px] font-bold uppercase tracking-[0.3em]">Welcome back to the future of style</p>
         </div>
-        <div className="space-y-4 mb-6">
+        <div className="space-y-4 mb-3">
           <input type="email" placeholder="EMAIL ADDRESS" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50 transition-colors" />
           <input type="password" placeholder="PASSWORD" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50 transition-colors" />
         </div>
-        <button onClick={() => setIsAuthenticated(true)} className="w-full py-5 bg-gradient-to-r from-rose-500 to-cyan-500 text-white rounded-[35px] font-black uppercase tracking-widest text-sm shadow-[0_15px_30px_rgba(233,30,99,0.3)] mb-10 active:scale-[0.98] transition-all">Sign In</button>
+        <div className="flex justify-end mb-8 px-1">
+          <button onClick={handleForgotPassword} className="text-white/40 text-[9px] font-black uppercase tracking-widest hover:text-cyan-400 transition-colors">Forgot Password?</button>
+        </div>
+        <button onClick={() => setIsAuthenticated(true)} className="w-full py-5 bg-gradient-to-r from-rose-500 to-cyan-500 text-white rounded-[35px] font-black uppercase tracking-widest text-sm shadow-[0_15px_30px_rgba(233,30,99,0.3)] mb-8 active:scale-[0.98] transition-all">Sign In</button>
+        
+        <div className="flex items-center gap-4 mb-8">
+          <div className="flex-1 h-px bg-white/5" />
+          <span className="text-[8px] font-black text-white/20 uppercase tracking-[0.3em]">Or Sign In With</span>
+          <div className="flex-1 h-px bg-white/5" />
+        </div>
+
+        <div className="flex justify-center gap-5 mb-12">
+          <button onClick={() => handleSocialSignIn('Google')} className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg hover:border-white/20">
+            <GoogleIcon className="w-6 h-6" />
+          </button>
+          <button onClick={() => handleSocialSignIn('Apple')} className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg hover:border-white/20">
+            <AppleIcon className="w-6 h-6" />
+          </button>
+          <button onClick={() => handleSocialSignIn('Instagram')} className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white active:scale-90 transition-all shadow-lg hover:border-white/20">
+            <InstagramIcon className="w-6 h-6" />
+          </button>
+        </div>
+
         <div className="text-center">
           <button onClick={() => setAuthStep('signup')} className="text-white/40 text-[10px] font-black uppercase tracking-widest group">Don't have an account? <span className="text-cyan-400 group-hover:underline">Join now</span></button>
         </div>
@@ -352,25 +424,35 @@ const App: React.FC = () => {
   function renderStyleDetail() {
     if (!analysis.result || !displayedImage) return null;
     
+    // Detected attributes for placeholder refinement
+    const gender = (analysis.result.physicalAttributes.gender || 'Person').toLowerCase();
+    
     // Get recommendations for current active category and sub-category
-    const categoryRecs = analysis.result.recommendations[activeCategory] || {};
+    const categoryRecs = (analysis.result.recommendations as any)[activeCategory] || {};
     const recommendations = categoryRecs[subCategory] || [];
 
     const navCategories = [
-      { id: 'hair', label: 'HAIR', icon: <SparklesIcon className="w-5 h-5" /> },
-      { id: 'outfit', label: 'OUTFITS', icon: <BoltIcon className="w-5 h-5" /> },
-      { id: 'access', label: 'ACCESS.', icon: <BoltIcon className="w-5 h-5" /> },
-      { id: 'tattoo', label: 'TATTOO', icon: <SparklesIcon className="w-5 h-5" /> },
-      { id: 'diet', label: 'DIET', icon: <SparklesIcon className="w-5 h-5" /> }
+      { id: 'hair', label: 'HAIR', icon: <HairIcon className="w-7 h-7" /> },
+      ...(gender === 'female' || gender === 'girl' ? [{ id: 'makeup', label: 'MAKE UP', icon: <MakeupIcon className="w-7 h-7" /> }] : []),
+      { id: 'outfit', label: 'OUTFITS', icon: <OutfitIcon className="w-7 h-7" /> },
+      { id: 'access', label: 'ACCESS.', icon: <AccessIcon className="w-7 h-7" /> },
+      { id: 'tattoo', label: 'TATTOO', icon: <TattooIcon className="w-7 h-7" /> },
+      { id: 'diet', label: 'DIET', icon: <DietIcon className="w-7 h-7" /> }
     ];
 
     const currentSubOptions = categorySubOptions[activeCategory];
+    // Filter Beard option if not an adult Male
+    const filteredSubOptions = activeCategory === 'hair' && gender !== 'male' 
+      ? currentSubOptions.filter(o => o !== 'beard') 
+      : currentSubOptions;
 
-    // Category-specific scaling for Full View (Outfit, Access, Tattoo need top-to-bottom body context)
     const isFullBodyCategory = ['outfit', 'access', 'tattoo'].includes(activeCategory);
-
-    // Transformation applied means we only show minimal UI (Back + Share) and remove menu category
     const isApplied = tryOnState === 'applied';
+
+    // Button label logic based on gender for hair category
+    const nearbyButtonLabel = (gender === 'male' || gender === 'boy') 
+      ? 'Find Nearby Salons' 
+      : 'Find Nearby Beauty Parlors & Stores';
 
     return (
       <div className="h-full w-full relative bg-[#0a0f1d] flex flex-col pt-safe pb-0 overflow-hidden">
@@ -389,7 +471,7 @@ const App: React.FC = () => {
           )}
         </div>
 
-        {/* Top Header UI - Hidden if Applied or Full View */}
+        {/* Top Header UI */}
         {(!isApplied && !isFullView) && (
           <header className={`relative z-20 flex justify-between items-center px-6 py-4 transition-all duration-500 ${tryOnState === 'scanning' ? 'opacity-0' : 'opacity-100'}`}>
             <button onClick={() => setActiveTab(AppTab.HOME)} className="w-10 h-10 bg-black/40 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 text-white active:scale-90 transition-all">
@@ -399,7 +481,7 @@ const App: React.FC = () => {
               <button onClick={() => setActiveTab(AppTab.ANALYSIS)} className="w-10 h-10 bg-black/40 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 text-white active:scale-90 transition-all">
                 <InfoIcon className="w-5 h-5" />
               </button>
-              <button onClick={() => setIsFullView(true)} className={`w-10 h-10 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 text-white transition-all active:scale-90 bg-black/40`}>
+              <button onClick={() => setIsFullView(true)} className="w-10 h-10 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 text-white transition-all active:scale-90 bg-black/40">
                 <FullViewIcon className="w-5 h-5" />
               </button>
               <button onClick={resetTryOn} className="w-10 h-10 bg-black/40 backdrop-blur-xl rounded-xl flex items-center justify-center border border-white/20 text-white active:scale-90 transition-all">
@@ -411,11 +493,11 @@ const App: React.FC = () => {
 
         <div className="flex-1" />
 
-        {/* Floating Controls Overlay (Visible in Full View or after application) */}
+        {/* Floating Controls Overlay */}
         {(isApplied || isFullView) && (
           <div className={`relative z-[40] flex justify-center gap-6 mb-8 animate-in slide-in-from-bottom-5 duration-700 ${(isFullView || isApplied) ? 'mb-16' : ''}`}>
              <button 
-               onClick={() => (isFullView || isApplied) ? handleBackToSelection() : handleBackToSelection()} 
+               onClick={() => handleBackToSelection()} 
                className="w-14 h-14 bg-black/60 backdrop-blur-xl border border-white/20 rounded-full flex items-center justify-center text-white active:scale-90 transition-all shadow-2xl"
              >
                 <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path d="M15 19l-7-7 7-7"/></svg>
@@ -429,7 +511,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        {/* Recommendation Interface (Hidden in Full View and Post-Transformation) */}
+        {/* Recommendation Interface */}
         <div className={`relative z-20 bg-gradient-to-t from-black via-black/95 to-transparent pt-4 transition-all duration-700 ${tryOnState === 'scanning' || isFullView || isApplied ? 'translate-y-full opacity-0' : 'translate-y-0 opacity-100'}`}>
           {(!isFullView && !isApplied) && (
             <div className="px-5 mb-2 translate-y-3">
@@ -438,9 +520,9 @@ const App: React.FC = () => {
                 <span className="text-[8px] font-black text-cyan-400 uppercase tracking-widest">{recommendations.length} Options</span>
               </div>
 
-              {/* Sub-category Slider - Compact Layout */}
+              {/* Sub-category Slider */}
               <div className="flex overflow-x-auto gap-1.5 pb-3 no-scrollbar mb-1">
-                {currentSubOptions.map((opt) => (
+                {filteredSubOptions.map((opt) => (
                   <button
                     key={opt}
                     onClick={() => setSubCategory(opt)}
@@ -455,13 +537,13 @@ const App: React.FC = () => {
                 ))}
               </div>
 
-              {/* Compact Style Cards Slider */}
+              {/* Style Cards Slider */}
               <div className="flex overflow-x-auto gap-3.5 pb-4 no-scrollbar -mx-5 px-5 min-h-[120px]">
                 {recommendations.length > 0 ? recommendations.map((item, idx) => (
                   <div key={idx} className="flex flex-col items-center flex-shrink-0 w-24">
                     <div onClick={() => startTryOn(item)} className="relative w-24 h-24 mb-2.5 overflow-hidden rounded-full border border-white/10 p-0.5 bg-black/40 active:scale-95 transition-transform cursor-pointer shadow-lg">
                       <img 
-                        src={`https://images.unsplash.com/photo-${1500000000000 + (idx * 117)}?auto=format&fit=crop&q=80&w=250`} 
+                        src={`https://loremflickr.com/250/250/${gender},${activeCategory},${subCategory}?lock=${idx}`} 
                         className="w-full h-full object-cover rounded-full opacity-70" 
                         alt={item.title} 
                       />
@@ -472,7 +554,7 @@ const App: React.FC = () => {
                     </div>
                     <div className="flex gap-1.5 w-full">
                        <button onClick={() => startTryOn(item)} className="flex-1 py-1 bg-cyan-500/10 border border-cyan-400/20 rounded-lg flex items-center justify-center text-cyan-400 active:bg-cyan-500 active:text-black transition-all" title="Try On"><TryOnIcon /></button>
-                       <button className="flex-1 py-1 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-white/40 active:bg-white/20 transition-all" title="Shop"><ShopIcon /></button>
+                       <button onClick={() => handleShopClick(item)} className="flex-1 py-1 bg-white/5 border border-white/10 rounded-lg flex items-center justify-center text-white/40 active:bg-white/20 transition-all" title="Shop"><ShopIcon /></button>
                     </div>
                   </div>
                 )) : (
@@ -482,29 +564,146 @@ const App: React.FC = () => {
                 )}
               </div>
               
-              {/* Nearby Buttons (Hidden in Full View and Post-Transformation) */}
               <div className="flex justify-center mb-3">
-                <button className="bg-black/60 border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 text-white text-[8px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95">
-                  <LocationIcon className="w-3 h-3" /> Find Nearby Services
+                <button onClick={handleNearbyClick} className="bg-black/60 border border-white/10 rounded-full px-4 py-2 flex items-center gap-2 text-white text-[8px] font-black uppercase tracking-[0.2em] shadow-xl active:scale-95">
+                  <LocationIcon className="w-3 h-3" /> {nearbyButtonLabel}
                 </button>
               </div>
             </div>
           )}
 
-          {/* Bottom Menu Category Nav Bar (Hidden in Full View and Post-Transformation) */}
+          {/* Bottom Menu Category Nav Bar */}
           {(!isFullView && !isApplied) && (
-            <div className="bg-black px-4 pt-3 pb-12 rounded-t-[35px] border-t border-white/5">
-              <div className="flex items-center justify-around">
+            <div className="bg-black px-4 pt-3 pb-12 rounded-t-[35px] border-t border-white/5 overflow-x-auto no-scrollbar">
+              <div className="flex items-center justify-around min-w-max gap-4 px-2">
                 {navCategories.map((cat) => (
-                  <button key={cat.id} onClick={() => { setActiveCategory(cat.id as any); setTryOnState('idle'); }} className={`flex flex-col items-center gap-1.5 transition-all ${activeCategory === cat.id ? 'text-cyan-400' : 'text-white/30'}`}>
-                    <div className={`p-2 rounded-xl transition-all ${activeCategory === cat.id ? 'bg-cyan-400 text-black shadow-lg shadow-cyan-400/30' : 'bg-white/5 opacity-50'}`}>{cat.icon}</div>
-                    <span className={`text-[8px] font-black uppercase tracking-widest ${activeCategory === cat.id ? 'opacity-100' : 'opacity-40'}`}>{cat.label}</span>
+                  <button key={cat.id} onClick={() => { setActiveCategory(cat.id as any); setTryOnState('idle'); }} className="flex flex-col items-center gap-2 group transition-all">
+                    <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${activeCategory === cat.id ? 'bg-gradient-to-b from-cyan-400 to-blue-500 text-white shadow-[0_0_20px_rgba(34,211,238,0.4)]' : 'bg-white/5 text-white/40'}`}>
+                      {cat.icon}
+                    </div>
+                    <span className={`text-[8px] font-black uppercase tracking-widest transition-colors ${activeCategory === cat.id ? 'text-cyan-400' : 'text-white/30'}`}>{cat.label}</span>
                   </button>
                 ))}
               </div>
             </div>
           )}
         </div>
+
+        {/* Shop Modal */}
+        {isShopModalOpen && shopTargetStyle && (
+          <div className="fixed inset-0 z-[120] flex items-center justify-center p-6">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl" onClick={() => setIsShopModalOpen(false)} />
+            <div className="relative w-full max-w-sm glass-card rounded-[40px] overflow-hidden p-6 animate-in zoom-in-95 duration-300">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xl font-black text-white uppercase tracking-tighter">Shop This Style</h3>
+                <button onClick={() => setIsShopModalOpen(false)} className="text-white/40 text-sm font-bold uppercase">Close</button>
+              </div>
+              <div className="aspect-square rounded-3xl overflow-hidden mb-6 border border-white/10">
+                 <img src={`https://loremflickr.com/400/400/${gender},${activeCategory}?lock=shop`} className="w-full h-full object-cover" />
+                 <div className="absolute bottom-6 left-6 right-6 p-4 bg-black/60 backdrop-blur-xl rounded-2xl border border-white/10">
+                   <p className="text-white font-black uppercase tracking-widest text-sm">{shopTargetStyle.title}</p>
+                   <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mt-1">Recommended for your look</p>
+                 </div>
+              </div>
+              <div className="space-y-3">
+                 <button onClick={() => window.open('https://amazon.com', '_blank')} className="w-full py-4 bg-white text-black rounded-2xl font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all">
+                   Amazon <span className="bg-rose-500 text-white px-2 py-0.5 rounded-full text-[8px]">-20% OFF</span>
+                 </button>
+                 <button onClick={() => window.open('https://flipkart.com', '_blank')} className="w-full py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 active:scale-95 transition-all">
+                   Flipkart <span className="text-emerald-400 text-[8px]">★ 4.8 Rating</span>
+                 </button>
+                 <button className="w-full py-4 bg-white/5 border border-white/10 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] active:scale-95 transition-all">
+                   Other Retailers
+                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Nearby Services Modal */}
+        {isNearbyModalOpen && (
+          <div className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center">
+            <div className="absolute inset-0 bg-black/95 backdrop-blur-xl" onClick={() => setIsNearbyModalOpen(false)} />
+            <div className="relative w-full max-w-lg bg-[#0a0f1d] border-t sm:border border-white/10 rounded-t-[50px] sm:rounded-[40px] p-8 max-h-[90vh] overflow-y-auto no-scrollbar animate-in slide-in-from-bottom-10 duration-500">
+               <div className="flex justify-between items-center mb-8">
+                  <h3 className="text-2xl font-black text-white uppercase tracking-tighter">
+                    {nearbyButtonLabel}
+                  </h3>
+                  <button onClick={() => setIsNearbyModalOpen(false)} className="w-10 h-10 bg-white/5 rounded-full flex items-center justify-center text-white/40">✕</button>
+               </div>
+               
+               <div className="space-y-5">
+                  {(gender === 'male' || gender === 'boy' ? [
+                    { name: "The Gentleman's Cut", rating: 4.9, dist: "0.8 km", discount: "15% OFF" },
+                    { name: "Urban Salon & Spa", rating: 4.7, dist: "1.2 km", discount: null },
+                    { name: "Classic Clippers", rating: 4.5, dist: "2.5 km", discount: "New Store Offer" }
+                  ] : [
+                    { name: "Radiance Beauty Parlor", rating: 4.9, dist: "0.5 km", discount: "First Visit -20%" },
+                    { name: "Glamour Haven Store", rating: 4.8, dist: "1.0 km", discount: null },
+                    { name: "Essence Wellness Center", rating: 4.6, dist: "3.2 km", discount: "Membership Deal" }
+                  ]).map((loc, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-[35px] p-6">
+                       <div className="flex justify-between items-start mb-4">
+                          <div>
+                             <h4 className="text-white font-black uppercase text-sm tracking-widest">{loc.name}</h4>
+                             <p className="text-white/40 text-[10px] font-bold uppercase mt-1 tracking-widest">{loc.dist} • ★ {loc.rating}</p>
+                          </div>
+                          {loc.discount && <span className="bg-emerald-500/20 text-emerald-400 text-[9px] font-black px-3 py-1 rounded-full uppercase">{loc.discount}</span>}
+                       </div>
+                       <div className="flex gap-3 mt-6">
+                          <button onClick={() => handleBookClick(loc)} className="flex-1 py-3.5 bg-cyan-500 text-black rounded-2xl font-black uppercase text-[10px] tracking-widest active:scale-95 transition-all">Book Appointment</button>
+                          <button className="w-14 h-14 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-center text-white active:scale-95 transition-all">
+                             <LocationIcon className="w-5 h-5" />
+                          </button>
+                       </div>
+                    </div>
+                  ))}
+               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Booking Form Modal */}
+        {isBookingFormOpen && (
+          <div className="fixed inset-0 z-[130] flex items-center justify-center p-6">
+            <div className="absolute inset-0 bg-black/90 backdrop-blur-2xl" onClick={() => setIsBookingFormOpen(false)} />
+            <div className="relative w-full max-w-sm glass-card rounded-[40px] p-8 animate-in zoom-in-95 duration-300">
+               <h3 className="text-xl font-black text-white uppercase tracking-tighter mb-2">Book Appointment</h3>
+               <p className="text-white/40 text-[10px] font-bold uppercase tracking-widest mb-8">{selectedService?.name}</p>
+               <form onSubmit={submitBooking} className="space-y-4">
+                  <input required type="text" placeholder="YOUR NAME" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50" />
+                  <input required type="tel" placeholder="PHONE NUMBER" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50" />
+                  <input required type="datetime-local" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50" />
+                  <textarea placeholder="ANY SPECIAL REQUESTS?" className="w-full bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-white text-xs font-bold uppercase tracking-widest outline-none focus:border-cyan-400/50 h-24 resize-none" />
+                  <button type="submit" className="w-full py-5 bg-gradient-to-r from-rose-500 to-cyan-500 text-white rounded-3xl font-black uppercase tracking-widest text-xs shadow-xl active:scale-95 transition-all mt-4">Confirm Request</button>
+               </form>
+            </div>
+          </div>
+        )}
+
+        {/* Booking Confirmation Modal */}
+        {isBookingConfirmed && (
+          <div className="fixed inset-0 z-[140] flex items-center justify-center p-6">
+            <div className="absolute inset-0 bg-[#0a0f1d]" />
+            <div className="text-center relative z-10 px-8">
+               <div className="w-24 h-24 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center mx-auto mb-8 animate-bounce">
+                  <svg className="w-12 h-12" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7"/></svg>
+               </div>
+               <h2 className="text-3xl font-black text-white uppercase tracking-tighter mb-4">Appointment Confirmed!</h2>
+               <p className="text-white/40 text-xs font-bold uppercase tracking-[0.2em] mb-12">Your request for {selectedService?.name} has been sent successfully.</p>
+               
+               <div className="bg-white/5 border border-white/10 rounded-[35px] p-8 mb-12">
+                  <div className="flex flex-col items-center gap-4">
+                     <h1 className="text-2xl font-black text-white tracking-tighter uppercase">STYLO<span className="text-cyan-400">GLO</span></h1>
+                     <div className="h-px w-12 bg-white/20" />
+                     <p className="text-[10px] font-black text-white/30 uppercase tracking-[0.5em]">Verified Stylist</p>
+                  </div>
+               </div>
+
+               <button onClick={() => { setIsBookingConfirmed(false); setIsNearbyModalOpen(false); }} className="w-full py-5 bg-white text-black rounded-3xl font-black uppercase tracking-widest text-xs active:scale-95 transition-all">Back to Style</button>
+            </div>
+          </div>
+        )}
 
         {/* Share Sheet Fallback */}
         {isShareSheetOpen && (
@@ -597,12 +796,23 @@ const App: React.FC = () => {
             <ColorBadge label="Eye color" value={analysis.result.physicalAttributes.eyeColor} color="#3d2b1f" />
           </div>
         </div>
-        <div className="relative z-[50] bg-black/80 backdrop-blur-2xl border-t border-white/10 px-4 py-6 mb-safe">
-           <div className="flex items-center justify-between">
-            {[{ id: 'hair', label: 'HAIR', icon: <SparklesIcon className="w-6 h-6" /> }, { id: 'outfit', label: 'OUTFITS', icon: <BoltIcon className="w-6 h-6" /> }, { id: 'access', label: 'ACCESS.', icon: <BoltIcon className="w-6 h-6" /> }, { id: 'tattoo', label: 'TATTOO', icon: <SparklesIcon className="w-6 h-6" /> }, { id: 'diet', label: 'DIET', icon: <SparklesIcon className="w-6 h-6" /> }].map((cat) => (
-              <button key={cat.id} onClick={() => { setActiveCategory(cat.id as any); setActiveTab(AppTab.STYLE_DETAIL); }} className={`flex flex-col items-center gap-2 transition-all ${activeCategory === cat.id ? 'text-cyan-400' : 'text-white/40'}`}>
-                <div className={`p-3 rounded-2xl transition-all ${activeCategory === cat.id ? 'bg-cyan-400/20 border border-cyan-400/40' : 'bg-white/5 border border-transparent'}`}>{cat.icon}</div>
-                <span className="text-[9px] font-black uppercase tracking-widest">{cat.label}</span>
+        <div className="relative z-[50] bg-black/80 backdrop-blur-2xl border-t border-white/10 px-4 py-6 mb-safe overflow-x-auto no-scrollbar">
+           <div className="flex items-center justify-around min-w-max gap-4 px-2">
+            {[
+              { id: 'hair', label: 'HAIR', icon: <HairIcon className="w-6 h-6" /> },
+              ...(analysis.result.physicalAttributes.gender?.toLowerCase() === 'female' || analysis.result.physicalAttributes.gender?.toLowerCase() === 'girl' 
+                ? [{ id: 'makeup', label: 'MAKE UP', icon: <MakeupIcon className="w-6 h-6" /> }] 
+                : []),
+              { id: 'outfit', label: 'OUTFITS', icon: <OutfitIcon className="w-6 h-6" /> }, 
+              { id: 'access', label: 'ACCESS.', icon: <AccessIcon className="w-6 h-6" /> }, 
+              { id: 'tattoo', label: 'TATTOO', icon: <TattooIcon className="w-6 h-6" /> }, 
+              { id: 'diet', label: 'DIET', icon: <DietIcon className="w-6 h-6" /> }
+            ].map((cat) => (
+              <button key={cat.id} onClick={() => { setActiveCategory(cat.id as any); setActiveTab(AppTab.STYLE_DETAIL); }} className="flex flex-col items-center gap-2 transition-all">
+                <div className={`w-14 h-14 rounded-full flex items-center justify-center transition-all duration-300 ${activeCategory === cat.id ? 'bg-gradient-to-b from-cyan-400 to-blue-500 text-white shadow-[0_0_15px_rgba(34,211,238,0.3)]' : 'bg-white/5 text-white/40'}`}>
+                  {cat.icon}
+                </div>
+                <span className={`text-[9px] font-black uppercase tracking-widest ${activeCategory === cat.id ? 'text-cyan-400' : 'text-white/40'}`}>{cat.label}</span>
               </button>
             ))}
            </div>

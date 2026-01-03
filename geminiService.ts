@@ -1,22 +1,8 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { StyleAnalysis } from "./types";
+import { StyleAnalysis, Recommendation } from "./types";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-
-const RECOMMENDATION_ARRAY_SCHEMA = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      title: { type: Type.STRING },
-      description: { type: Type.STRING },
-      tags: { type: Type.ARRAY, items: { type: Type.STRING } },
-      badge: { type: Type.STRING }
-    },
-    required: ["title", "description", "tags"]
-  }
-};
 
 const ANALYSIS_SCHEMA = {
   type: Type.OBJECT,
@@ -53,80 +39,27 @@ const ANALYSIS_SCHEMA = {
         skinColor: { type: Type.STRING },
         eyeColor: { type: Type.STRING },
         hairColor: { type: Type.STRING },
-        gender: { type: Type.STRING },
-        height: { type: Type.STRING, description: "Estimated height (e.g. 5'10'')" },
-        weight: { type: Type.STRING, description: "Estimated weight (e.g. 160 lbs)" }
+        gender: { type: Type.STRING, description: "Classify strictly as: 'Male', 'Female', 'Boy', or 'Girl'" },
+        height: { type: Type.STRING, description: "Estimated height" },
+        weight: { type: Type.STRING, description: "Estimated weight" }
       },
       required: ["estimatedAge", "skinColor", "eyeColor", "hairColor", "gender", "height", "weight"]
     },
-    recommendations: {
-      type: Type.OBJECT,
-      properties: {
-        hair: {
-          type: Type.OBJECT,
-          properties: {
-            hair: RECOMMENDATION_ARRAY_SCHEMA,
-            beard: RECOMMENDATION_ARRAY_SCHEMA
-          }
+    // Use a flat array to avoid "Constraint too tall" error caused by deep nested named properties
+    recommendationsList: {
+      type: Type.ARRAY,
+      description: "Flat list of all style recommendations",
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          category: { type: Type.STRING, description: "The main category (e.g., hair, makeup, outfit, access, tattoo, diet)" },
+          subCategory: { type: Type.STRING, description: "The specific sub-category (e.g., Party, beard, Sunglasses)" },
+          title: { type: Type.STRING },
+          description: { type: Type.STRING },
+          tags: { type: Type.ARRAY, items: { type: Type.STRING } },
+          badge: { type: Type.STRING }
         },
-        outfit: {
-          type: Type.OBJECT,
-          properties: {
-            Party: RECOMMENDATION_ARRAY_SCHEMA,
-            Wedding: RECOMMENDATION_ARRAY_SCHEMA,
-            Office: RECOMMENDATION_ARRAY_SCHEMA,
-            Fashion: RECOMMENDATION_ARRAY_SCHEMA,
-            Travel: RECOMMENDATION_ARRAY_SCHEMA,
-            Beach: RECOMMENDATION_ARRAY_SCHEMA,
-            Trekking: RECOMMENDATION_ARRAY_SCHEMA,
-            Summer: RECOMMENDATION_ARRAY_SCHEMA,
-            Winter: RECOMMENDATION_ARRAY_SCHEMA,
-            Rainy: RECOMMENDATION_ARRAY_SCHEMA
-          }
-        },
-        access: {
-          type: Type.OBJECT,
-          properties: {
-            Shoes: RECOMMENDATION_ARRAY_SCHEMA,
-            Watches: RECOMMENDATION_ARRAY_SCHEMA,
-            Sunglasses: RECOMMENDATION_ARRAY_SCHEMA,
-            Caps: RECOMMENDATION_ARRAY_SCHEMA,
-            Bands: RECOMMENDATION_ARRAY_SCHEMA,
-            Studs: RECOMMENDATION_ARRAY_SCHEMA,
-            Belts: RECOMMENDATION_ARRAY_SCHEMA,
-            Ties: RECOMMENDATION_ARRAY_SCHEMA
-          }
-        },
-        tattoo: {
-          type: Type.OBJECT,
-          properties: {
-            Face: RECOMMENDATION_ARRAY_SCHEMA,
-            Neck: RECOMMENDATION_ARRAY_SCHEMA,
-            Fingers: RECOMMENDATION_ARRAY_SCHEMA,
-            Hands: RECOMMENDATION_ARRAY_SCHEMA,
-            Shoulder: RECOMMENDATION_ARRAY_SCHEMA,
-            Front: RECOMMENDATION_ARRAY_SCHEMA,
-            Back: RECOMMENDATION_ARRAY_SCHEMA,
-            Belly: RECOMMENDATION_ARRAY_SCHEMA,
-            Waist: RECOMMENDATION_ARRAY_SCHEMA,
-            Legs: RECOMMENDATION_ARRAY_SCHEMA
-          }
-        },
-        diet: {
-          type: Type.OBJECT,
-          properties: {
-            Protein: RECOMMENDATION_ARRAY_SCHEMA,
-            Powders: RECOMMENDATION_ARRAY_SCHEMA,
-            Salads: RECOMMENDATION_ARRAY_SCHEMA,
-            DryFruits: RECOMMENDATION_ARRAY_SCHEMA,
-            Fruits: RECOMMENDATION_ARRAY_SCHEMA,
-            Seeds: RECOMMENDATION_ARRAY_SCHEMA,
-            Keto: RECOMMENDATION_ARRAY_SCHEMA,
-            NonVeg: RECOMMENDATION_ARRAY_SCHEMA,
-            Veg: RECOMMENDATION_ARRAY_SCHEMA,
-            GreenLeaves: RECOMMENDATION_ARRAY_SCHEMA
-          }
-        }
+        required: ["category", "subCategory", "title", "description", "tags"]
       }
     },
     occasionTips: { type: Type.ARRAY, items: { type: Type.STRING } }
@@ -138,14 +71,11 @@ const ANALYSIS_SCHEMA = {
     "colorPalette", 
     "skinHealth", 
     "physicalAttributes", 
-    "recommendations",
+    "recommendationsList",
     "occasionTips"
   ]
 };
 
-/**
- * Use gemini-3-pro-preview for complex reasoning tasks like style and health analysis.
- */
 export const analyzeStyle = async (base64Image: string): Promise<StyleAnalysis> => {
   try {
     const dataParts = base64Image.split(',');
@@ -163,13 +93,17 @@ export const analyzeStyle = async (base64Image: string): Promise<StyleAnalysis> 
           },
           {
             text: `Perform a comprehensive premium style and health analysis. 
-            Analyze gender, face structure, skin tone, height, weight, and age from the photo.
-            Generate EXACTLY 3-5 high-quality, personalized recommendations for EVERY sub-category listed in the schema.
-            Recommendations MUST be relevant to the person's detected physical attributes. No generic filler.
-            Provide specific outfit styles for Wedding/Office/etc. that suit their body type.
-            Suggest sunglasses that fit their face shape.
-            Suggest diet options that suit their estimated age and physique.
-            Return result in strict JSON format according to the provided schema.`
+            Identify if the person is a Male, Female, Boy, or Girl.
+            
+            REQUIRED SUB-CATEGORIES (Provide exactly 5 items for each valid one):
+            - hair: hair, beard (only for adult Male)
+            - makeup: Contact Lens, Eyebrows, Eye Liner, Lipstick, Lip Liner, Stickers, Ear Rings (only for Female/Girl)
+            - outfit: Party, Wedding, Office, Fashion, Travel, Beach, Trekking, Summer, Winter, Rainy
+            - access: Shoes, Watches, Sunglasses, Caps, Bands, Studs, Belts, Ties
+            - tattoo: Face, Neck, Fingers, Hands, Shoulder, Front, Back, Belly, Waist, Legs
+            - diet: Protein, Powders, Salads, DryFruits, Fruits, Seeds, Keto, NonVeg, Veg, GreenLeaves
+            
+            Return result in strict JSON format. Use the recommendationsList array for all style items.`
           },
         ],
       },
@@ -179,7 +113,47 @@ export const analyzeStyle = async (base64Image: string): Promise<StyleAnalysis> 
       },
     });
 
-    const result = JSON.parse(response.text || "{}") as StyleAnalysis;
+    const parsed = JSON.parse(response.text || "{}");
+    
+    // Group the flat list back into the nested structure expected by the frontend
+    const recommendations: any = {
+      hair: {},
+      makeup: {},
+      outfit: {},
+      access: {},
+      tattoo: {},
+      diet: {}
+    };
+
+    if (Array.isArray(parsed.recommendationsList)) {
+      parsed.recommendationsList.forEach((item: any) => {
+        const cat = item.category?.toLowerCase();
+        if (recommendations[cat]) {
+          if (!recommendations[cat][item.subCategory]) {
+            recommendations[cat][item.subCategory] = [];
+          }
+          recommendations[cat][item.subCategory].push({
+            title: item.title,
+            description: item.description,
+            tags: item.tags,
+            badge: item.badge
+          });
+        }
+      });
+    }
+
+    // Map back to the StyleAnalysis interface
+    const result: StyleAnalysis = {
+      vibe: parsed.vibe,
+      faceShape: parsed.faceShape,
+      bodyType: parsed.bodyType,
+      colorPalette: parsed.colorPalette,
+      skinHealth: parsed.skinHealth,
+      physicalAttributes: parsed.physicalAttributes,
+      occasionTips: parsed.occasionTips,
+      recommendations
+    };
+
     return result;
   } catch (error) {
     console.error("Analysis failed:", error);
@@ -187,9 +161,6 @@ export const analyzeStyle = async (base64Image: string): Promise<StyleAnalysis> 
   }
 };
 
-/**
- * Use gemini-2.5-flash-image for general image editing tasks.
- */
 export const transformStyle = async (base64Image: string, styleTitle: string, category: string): Promise<string> => {
   try {
     const dataParts = base64Image.split(',');
@@ -207,25 +178,22 @@ export const transformStyle = async (base64Image: string, styleTitle: string, ca
           },
           {
             text: `Apply the "${styleTitle}" look to this person in the "${category}" area. 
-            Maintain their facial structure, identity, and skin tone. 
-            Change only the elements related to the recommendation.
-            Output a single transformed image part.`
+            Maintain their identity. Output a single transformed image part.`
           },
         ],
       },
     });
 
     if (!response.candidates || response.candidates.length === 0) {
-      throw new Error("No candidates returned from the transformation.");
+      throw new Error("No candidates returned from transformation.");
     }
 
     for (const part of response.candidates[0].content.parts) {
-      // Find the image part, do not assume it is the first part.
       if (part.inlineData) {
         return `data:image/png;base64,${part.inlineData.data}`;
       }
     }
-    throw new Error("No image was found in the transformation response.");
+    throw new Error("No image was found in transformation response.");
   } catch (error) {
     console.error("Style transformation failed:", error);
     throw error;

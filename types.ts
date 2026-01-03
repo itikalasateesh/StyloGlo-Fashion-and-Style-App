@@ -29,7 +29,7 @@ export interface PhysicalAttributes {
   skinColor: string;
   eyeColor: string;
   hairColor: string;
-  gender?: 'male' | 'female' | 'other';
+  gender?: 'Male' | 'Female' | 'Boy' | 'Girl';
   height?: string;
   weight?: string;
 }
@@ -49,6 +49,7 @@ export interface StyleAnalysis {
   // Dynamic categories keyed by sub-category name
   recommendations: {
     hair: Record<string, Recommendation[]>;
+    makeup: Record<string, Recommendation[]>;
     outfit: Record<string, Recommendation[]>;
     access: Record<string, Recommendation[]>;
     tattoo: Record<string, Recommendation[]>;
